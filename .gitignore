@@ -1,0 +1,17 @@
+# Python cache
+__pycache__/
+*.pyc
+
+# SQLite databases
+*.db
+
+# Virtual environments
+venv/
+.env
+
+# Docker files
+*.log
+*.pid
+
+# Streamlit cache
+.streamlit/
