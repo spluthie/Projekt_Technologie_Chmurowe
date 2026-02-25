@@ -15,3 +15,9 @@ venv/
 
 # Streamlit cache
 .streamlit/
+
+# macOS
+.DS_Store
+
+#VS code 
+".vscode/"

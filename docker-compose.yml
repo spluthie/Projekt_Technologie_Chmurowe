@@ -1,0 +1,26 @@
+version: "3.9"
+
+services:
+  auth:
+    build: ./auth-service
+    ports:
+      - "8000:8000"
+    environment:
+      - SECRET_KEY=supersecretkey
+
+  post:
+    build: ./post-service
+    ports:
+      - "8001:8001"
+    environment:
+      - SECRET_KEY=supersecretkey
+    depends_on:
+      - auth
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "8501:8501"
+    depends_on:
+      - auth
+      - post

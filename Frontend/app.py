@@ -2,8 +2,8 @@ import streamlit as st
 import requests
 
 # API URLs
-AUTH_URL = "http://localhost:8000"
-POST_URL = "http://localhost:8001"
+POST_URL = "http://post:8001"
+AUTH_URL = "http://auth:8000"
 
 # Initialize session state for JWT token
 if "token" not in st.session_state:
