@@ -1,72 +1,65 @@
 # auth-service/tests/test_main.py
+import os
+import tempfile
 import pytest
 from fastapi.testclient import TestClient
+
+# Ensure we can import app modules
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from app.main import app
 from app import database, auth
 
-# Use TestClient to make HTTP requests to the FastAPI app
-client = TestClient(app)
+# Use a temporary DB for tests
+@pytest.fixture(scope="module")
+def client():
+    # Create temp DB file
+    db_fd, db_path = tempfile.mkstemp()
+    database.DB_FILE = db_path
+    database.create_tables()
+    yield TestClient(app)
+    os.close(db_fd)
+    os.unlink(db_path)  # remove temp file after tests
 
+@pytest.fixture
+def new_user():
+    return {"username": "testuser", "password": "testpass123"}
 
-# --- Setup / Teardown helpers ---
-@pytest.fixture(autouse=True)
-def clear_db():
-    """Clear database before each test"""
-    database.clear_all_users()  # you need to implement this helper in your DB module
-    yield
+def test_root(client):
+    resp = client.get("/")
+    assert resp.status_code == 200
+    assert resp.json() == {"message": "Auth Service running"}
 
+def test_register_user(client, new_user):
+    resp = client.post("/register", json=new_user)
+    assert resp.status_code == 200
+    assert resp.json()["message"] == "User registered successfully"
 
-# --- Tests ---
+    # Duplicate registration should fail
+    resp2 = client.post("/register", json=new_user)
+    assert resp2.status_code == 400
+    assert "Username already exists" in resp2.json()["detail"]
 
-def test_root():
-    response = client.get("/")
-    assert response.status_code == 200
-    assert response.json() == {"message": "Auth Service running"}
-
-
-def test_register_user():
-    response = client.post("/register", json={
-        "username": "alice",
-        "password": "secret123"
-    })
-    assert response.status_code == 200
-    assert response.json() == {"message": "User registered successfully"}
-
-    # Attempt to register same username again
-    response2 = client.post("/register", json={
-        "username": "alice",
-        "password": "anotherpass"
-    })
-    assert response2.status_code == 400
-    assert response2.json()["detail"] == "Username already exists"
-
-
-def test_login_user_success():
-    # First register user
-    client.post("/register", json={"username": "bob", "password": "mypassword"})
-    
-    # Login
-    response = client.post("/login", json={"username": "bob", "password": "mypassword"})
-    assert response.status_code == 200
-    data = response.json()
+def test_login_user(client, new_user):
+    # Login with correct credentials
+    resp = client.post("/login", json=new_user)
+    assert resp.status_code == 200
+    data = resp.json()
     assert "access_token" in data
 
-    # Optional: decode token to check payload (if using PyJWT)
-    payload = auth.decode_jwt(data["access_token"])
-    assert payload["username"] == "bob"
+    token = data["access_token"]
+    payload = auth.verify_jwt(token)
+    assert payload["username"] == new_user["username"]
+    assert "user_id" in payload
+    assert payload["role"] == "user"
 
+    # Login with wrong password
+    resp2 = client.post("/login", json={"username": new_user["username"], "password": "wrongpass"})
+    assert resp2.status_code == 400
+    assert "Invalid username or password" in resp2.json()["detail"]
 
-def test_login_user_fail_wrong_password():
-    # Register user
-    client.post("/register", json={"username": "carol", "password": "pass123"})
-    
-    # Wrong password
-    response = client.post("/login", json={"username": "carol", "password": "wrongpass"})
-    assert response.status_code == 400
-    assert response.json()["detail"] == "Invalid username or password"
-
-
-def test_login_user_fail_nonexistent():
-    response = client.post("/login", json={"username": "nonexistent", "password": "abc"})
-    assert response.status_code == 400
-    assert response.json()["detail"] == "Invalid username or password"
+    # Login with non-existent user
+    resp3 = client.post("/login", json={"username": "noone", "password": "nopass"})
+    assert resp3.status_code == 400
+    assert "Invalid username or password" in resp3.json()["detail"]
