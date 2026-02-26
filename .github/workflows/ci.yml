@@ -25,13 +25,13 @@ jobs:
       - name: Build and push auth-service
         uses: docker/build-push-action@v5
         with:
-          context: ./auth
+          context: ./auth-service
           push: true
           tags: spluthietaco/auth-service:latest
 
       - name: Build and push post-service
         uses: docker/build-push-action@v5
         with:
-          context: ./post
+          context: ./post-service
           push: true
           tags: spluthietaco/post-service:latest
