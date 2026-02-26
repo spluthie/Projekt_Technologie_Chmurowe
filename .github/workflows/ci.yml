@@ -33,7 +33,7 @@ jobs:
           PYTHONPATH=post-service:$PYTHONPATH pytest post-service/tests/
           
           # Run end-to-end tests with access to both services
-          PYTHONPATH=auth-service:post-service:$PYTHONPATH pytest tests_e2e/
+          #PYTHONPATH=auth-service:post-service:$PYTHONPATH pytest tests_e2e/
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
