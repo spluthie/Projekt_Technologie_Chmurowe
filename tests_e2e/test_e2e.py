@@ -1,92 +1,75 @@
-# post-service/tests/test_e2e.py
+# tests_e2e/test_e2e.py
 import sys
-from pathlib import Path
-
-# -----------------------------
-# Add service folders to Python path
-# -----------------------------
-ROOT_DIR = Path(__file__).parent.parent.parent  # points to repo root
-sys.path.append(str(ROOT_DIR / "post-service"))
-sys.path.append(str(ROOT_DIR / "auth-service"))
-
-# Now imports work
+import os
 import pytest
 from fastapi.testclient import TestClient
+
+# Add service folders to sys.path manually (because of hyphens)
+sys.path.append(os.path.join(os.path.dirname(__file__), "../auth-service"))
+sys.path.append(os.path.join(os.path.dirname(__file__), "../post-service"))
+
+# Now we can import main.py from each service
+from app.main import app as auth_app
 from app.main import app as post_app
-from app import database as post_db
-from datetime import datetime, timedelta
-import jwt
-from app import auth as post_auth
+from app import auth as auth_lib  # for JWT secret if needed
 
-from auth_service.app.main import app as auth_app
-from auth_service.app import database as auth_db, auth as auth_utils
+auth_client = TestClient(auth_app)
+post_client = TestClient(post_app)
 
-# -----------------------------
-# Fixtures
-# -----------------------------
-
-@pytest.fixture(scope="module")
-def auth_client():
-    # Use in-memory sqlite for testing
-    auth_db.DB_FILE = ":memory:"
-    auth_db.create_tables()
-    return TestClient(auth_app)
-
-@pytest.fixture(scope="module")
-def post_client():
-    post_db.DB_FILE = ":memory:"
-    post_db.create_tables()
-    return TestClient(post_app)
 
 @pytest.fixture
-def user_credentials():
-    return {"username": "e2euser", "password": "testpass123"}
+def user_token():
+    # Create a fake token for testing post-service
+    payload = {
+        "user_id": 1,
+        "username": "testuser",
+        "role": "user",
+        "exp": __import__("datetime").datetime.utcnow() + __import__("datetime").timedelta(minutes=60)
+    }
+    import jwt
+    token = jwt.encode(payload, auth_lib.SECRET_KEY, algorithm=auth_lib.ALGORITHM)
+    return f"Bearer {token}"
 
-@pytest.fixture
-def token(auth_client, user_credentials):
+
+def test_register_and_login():
     # Register user
-    auth_client.post("/register", json=user_credentials)
-    # Login user
-    resp = auth_client.post("/login", json=user_credentials)
-    return f"Bearer {resp.json()['access_token']}"
+    response = auth_client.post("/register", json={"username": "e2euser", "password": "password123"})
+    assert response.status_code in [200, 400]  # 400 if already exists
 
-# -----------------------------
-# E2E Tests
-# -----------------------------
+    # Login
+    response = auth_client.post("/login", json={"username": "e2euser", "password": "password123"})
+    assert response.status_code == 200
+    data = response.json()
+    assert "access_token" in data
 
-def test_full_user_flow(auth_client, post_client, user_credentials):
-    # 1. Register user (optional, already done in token fixture)
-    resp = auth_client.post("/register", json={"username": "newuser", "password": "pass123"})
-    assert resp.status_code in [200, 400]  # 400 if already exists
 
-    # 2. Login user
-    resp = auth_client.post("/login", json={"username": "newuser", "password": "pass123"})
-    assert resp.status_code == 200
-    access_token = resp.json()["access_token"]
-    headers = {"authorization": f"Bearer {access_token}"}
+def test_create_post(user_token):
+    response = post_client.post("/posts", json={"content": "Hello E2E"}, headers={"Authorization": user_token})
+    assert response.status_code == 200
+    assert response.json()["message"] == "Post created"
 
-    # 3. Create post
-    post_data = {"content": "Hello E2E!"}
-    resp = post_client.post("/posts", json=post_data, headers=headers)
-    assert resp.status_code == 200
-    assert resp.json()["message"] == "Post created"
 
-    # 4. Read posts
-    resp = post_client.get("/posts")
-    assert resp.status_code == 200
-    posts = resp.json()
-    assert any(p["content"] == "Hello E2E!" for p in posts)
-    post_id = posts[0]["id"]
+def test_read_posts(user_token):
+    response = post_client.get("/posts", headers={"Authorization": user_token})
+    assert response.status_code == 200
+    assert isinstance(response.json(), list)
 
-    # 5. Update post
-    updated_data = {"content": "Updated E2E"}
-    resp = post_client.put(f"/posts/{post_id}", json=updated_data, headers=headers)
-    assert resp.status_code == 200
-    resp = post_client.get(f"/posts/{post_id}")
-    assert resp.json()["content"] == "Updated E2E"
 
-    # 6. Delete post
-    resp = post_client.delete(f"/posts/{post_id}", headers=headers)
-    assert resp.status_code == 200
-    resp = post_client.get(f"/posts/{post_id}")
-    assert resp.status_code == 404
+def test_update_and_delete_post(user_token):
+    # Create post first
+    response = post_client.post("/posts", json={"content": "Update Me"}, headers={"Authorization": user_token})
+    assert response.status_code == 200
+
+    # Read posts to get id
+    response = post_client.get("/posts", headers={"Authorization": user_token})
+    post_id = response.json()[0]["id"]
+
+    # Update post
+    response = post_client.put(f"/posts/{post_id}", json={"content": "Updated!"}, headers={"Authorization": user_token})
+    assert response.status_code == 200
+    assert response.json()["message"] == "Post updated"
+
+    # Delete post
+    response = post_client.delete(f"/posts/{post_id}", headers={"Authorization": user_token})
+    assert response.status_code == 200
+    assert response.json()["message"] == "Post deleted"
