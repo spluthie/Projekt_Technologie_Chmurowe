@@ -30,6 +30,7 @@ jobs:
           PYTHONPATH=.:$PYTHONPATH pytest tests/
           cd ../post-service
           PYTHONPATH=.:$PYTHONPATH pytest tests/
+          PYTHONPATH=.:$PYTHONPATH pytest tests_e2e/
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
