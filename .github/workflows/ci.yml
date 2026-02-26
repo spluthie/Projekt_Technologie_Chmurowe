@@ -25,13 +25,13 @@ jobs:
           pip install pytest httpx
 
       - name: Run tests
-        run: |
-          cd auth-service
-          PYTHONPATH=.:$PYTHONPATH pytest tests/
-          cd ../post-service
-          PYTHONPATH=.:$PYTHONPATH pytest tests/
-          cd ..
-          PYTHONPATH=.:$PYTHONPATH pytest tests_e2e/
+  run: |
+    cd auth-service
+    PYTHONPATH=.:$PYTHONPATH pytest tests/
+    cd ../post-service
+    PYTHONPATH=.:$PYTHONPATH pytest tests/
+    cd ..
+    PYTHONPATH=post-service:$PYTHONPATH pytest tests_e2e/
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
