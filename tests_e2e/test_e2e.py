@@ -1,4 +1,15 @@
 # post-service/tests/test_e2e.py
+import sys
+from pathlib import Path
+
+# -----------------------------
+# Add service folders to Python path
+# -----------------------------
+ROOT_DIR = Path(__file__).parent.parent.parent  # points to repo root
+sys.path.append(str(ROOT_DIR / "post-service"))
+sys.path.append(str(ROOT_DIR / "auth-service"))
+
+# Now imports work
 import pytest
 from fastapi.testclient import TestClient
 from app.main import app as post_app
