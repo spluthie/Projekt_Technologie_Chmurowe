@@ -13,6 +13,22 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.14'
+
+      - name: Install dependencies
+        run: |
+          pip install -r auth-service/requirements.txt
+          pip install -r post-service/requirements.txt
+          pip install pytest httpx
+
+      - name: Run tests
+        run: |
+          pytest auth-service/tests/
+          pytest post-service/tests/
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
