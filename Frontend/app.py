@@ -2,8 +2,8 @@ import streamlit as st
 import requests
 
 # API URLs
-POST_URL = "http://post:8001"
-AUTH_URL = "http://auth:8000"
+POST_URL = "https://post-service.gentlewave-5817ead5.spaincentral.azurecontainerapps.io"
+AUTH_URL = "https://auth-service.gentlewave-5817ead5.spaincentral.azurecontainerapps.io"
 
 # Initialize session state for JWT token
 if "token" not in st.session_state:
