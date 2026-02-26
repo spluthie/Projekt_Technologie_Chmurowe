@@ -25,13 +25,15 @@ jobs:
           pip install pytest httpx
 
       - name: Run tests
-  run: |
-    cd auth-service
-    PYTHONPATH=.:$PYTHONPATH pytest tests/
-    cd ../post-service
-    PYTHONPATH=.:$PYTHONPATH pytest tests/
-    cd ..
-    PYTHONPATH=post-service:$PYTHONPATH pytest tests_e2e/
+        run: |
+          # Run auth-service tests
+          PYTHONPATH=auth-service:$PYTHONPATH pytest auth-service/tests/
+          
+          # Run post-service tests
+          PYTHONPATH=post-service:$PYTHONPATH pytest post-service/tests/
+          
+          # Run end-to-end tests with access to both services
+          PYTHONPATH=auth-service:post-service:$PYTHONPATH pytest tests_e2e/
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -39,7 +41,7 @@ jobs:
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
-          username: spluthietaco 
+          username: spluthietaco
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and push auth-service
