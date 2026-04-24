@@ -10,11 +10,11 @@ if "token" not in st.session_state:
     st.session_state.token = ""
 
 # --- LOGIN ---
-st.title("Mini Social App")
+st.title("Stronka")
 
 st.subheader("Login / Register")
-username = st.text_input("Username")
-password = st.text_input("Password", type="password")
+username = st.text_input("Nazwa użytkownika")
+password = st.text_input("Hasło", type="password")
 
 col1, col2 = st.columns(2)
 
