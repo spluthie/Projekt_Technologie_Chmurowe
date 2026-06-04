@@ -57,3 +57,10 @@ jobs:
           context: ./post-service
           push: true
           tags: spluthietaco/post-service:latest
+
+      - name: Build and push frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend_react
+          push: true
+          tags: spluthietaco/frontend:latest
