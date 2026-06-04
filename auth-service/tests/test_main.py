@@ -1,65 +1,60 @@
-# auth-service/tests/test_main.py
 import os
-import tempfile
+import sys
 import pytest
+from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
 
-# Ensure we can import app modules
-import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+os.environ["DATABASE_URL"] = "postgresql://test:test@localhost/test"
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app.main import app
-from app import database, auth
+with patch("psycopg2.connect", return_value=MagicMock()):
+    from app.main import app
+    from app import database, auth
 
-# Use a temporary DB for tests
-@pytest.fixture(scope="module")
-def client():
-    # Create temp DB file
-    db_fd, db_path = tempfile.mkstemp()
-    database.DB_FILE = db_path
-    database.create_tables()
-    yield TestClient(app)
-    os.close(db_fd)
-    os.unlink(db_path)  # remove temp file after tests
 
 @pytest.fixture
-def new_user():
-    return {"username": "testuser", "password": "testpass123"}
+def client():
+    return TestClient(app)
+
 
 def test_root(client):
     resp = client.get("/")
     assert resp.status_code == 200
     assert resp.json() == {"message": "Auth Service running"}
 
-def test_register_user(client, new_user):
-    resp = client.post("/register", json=new_user)
+
+def test_register_user(client):
+    with patch.object(database, "get_user_by_username", return_value=None), \
+         patch.object(database, "create_user"):
+        resp = client.post("/register", json={"username": "testuser", "password": "testpass123"})
     assert resp.status_code == 200
     assert resp.json()["message"] == "User registered successfully"
 
-    # Duplicate registration should fail
-    resp2 = client.post("/register", json=new_user)
-    assert resp2.status_code == 400
-    assert "Username already exists" in resp2.json()["detail"]
+    with patch.object(database, "get_user_by_username", return_value={"id": 1, "username": "testuser"}):
+        resp = client.post("/register", json={"username": "testuser", "password": "testpass123"})
+    assert resp.status_code == 400
+    assert "Username already exists" in resp.json()["detail"]
 
-def test_login_user(client, new_user):
-    # Login with correct credentials
-    resp = client.post("/login", json=new_user)
+
+def test_login_user(client):
+    hashed = auth.hash_password("testpass123")
+    fake_user = {"id": 1, "username": "testuser", "password_hash": hashed, "role": "user"}
+
+    with patch.object(database, "get_user_by_username", return_value=fake_user):
+        resp = client.post("/login", json={"username": "testuser", "password": "testpass123"})
     assert resp.status_code == 200
-    data = resp.json()
-    assert "access_token" in data
-
-    token = data["access_token"]
+    token = resp.json()["access_token"]
     payload = auth.verify_jwt(token)
-    assert payload["username"] == new_user["username"]
+    assert payload["username"] == "testuser"
     assert "user_id" in payload
     assert payload["role"] == "user"
 
-    # Login with wrong password
-    resp2 = client.post("/login", json={"username": new_user["username"], "password": "wrongpass"})
-    assert resp2.status_code == 400
-    assert "Invalid username or password" in resp2.json()["detail"]
+    with patch.object(database, "get_user_by_username", return_value=fake_user):
+        resp = client.post("/login", json={"username": "testuser", "password": "wrongpass"})
+    assert resp.status_code == 400
+    assert "Invalid username or password" in resp.json()["detail"]
 
-    # Login with non-existent user
-    resp3 = client.post("/login", json={"username": "noone", "password": "nopass"})
-    assert resp3.status_code == 400
-    assert "Invalid username or password" in resp3.json()["detail"]
+    with patch.object(database, "get_user_by_username", return_value=None):
+        resp = client.post("/login", json={"username": "noone", "password": "nopass"})
+    assert resp.status_code == 400
+    assert "Invalid username or password" in resp.json()["detail"]

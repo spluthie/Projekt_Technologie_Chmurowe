@@ -2,10 +2,8 @@ import os
 import psycopg2
 import psycopg2.extras
 
-DATABASE_URL = os.environ["DATABASE_URL"]
-
 def get_connection():
-    return psycopg2.connect(DATABASE_URL)
+    return psycopg2.connect(os.environ["DATABASE_URL"])
 
 def create_tables():
     conn = get_connection()

@@ -1,91 +1,86 @@
-# post-service/tests/test_main.py
 import os
-import tempfile
+import sys
 import pytest
+from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
 import jwt
 from datetime import datetime, timedelta
 
-# allow imports from app
-import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+os.environ["DATABASE_URL"] = "postgresql://test:test@localhost/test"
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app.main import app
-from app import database, auth
+with patch("psycopg2.connect", return_value=MagicMock()):
+    from app.main import app
+    from app import database, auth
 
-# --------------------------
-# Fixtures
-# --------------------------
 
-# Use a temporary DB for testing
-@pytest.fixture(scope="module")
-def client():
-    db_fd, db_path = tempfile.mkstemp()
-    database.DB_FILE = db_path
-    database.create_tables()
-    yield TestClient(app)
-    os.close(db_fd)
-    os.unlink(db_path)
+FAKE_POST = {
+    "id": 1,
+    "user_id": 1,
+    "username": "testuser",
+    "content": "Hello World!",
+    "created_at": "2024-01-01T00:00:00",
+}
 
-# Fake user token fixture
+
 @pytest.fixture
-def fake_user_token():
+def client():
+    return TestClient(app)
+
+
+@pytest.fixture
+def auth_header():
     payload = {
         "user_id": 1,
         "username": "testuser",
         "role": "user",
-        "exp": datetime.utcnow() + timedelta(minutes=60)
+        "exp": datetime.utcnow() + timedelta(minutes=60),
     }
     token = jwt.encode(payload, auth.SECRET_KEY, algorithm=auth.ALGORITHM)
-    return f"Bearer {token}"
+    return {"authorization": f"Bearer {token}"}
 
-@pytest.fixture
-def new_post():
-    return {"content": "Hello World!"}
 
-# --------------------------
-# Tests
-# --------------------------
-
-def test_create_post(client, fake_user_token, new_post):
-    resp = client.post("/posts", json=new_post, headers={"authorization": fake_user_token})
+def test_create_post(client, auth_header):
+    with patch.object(database, "create_post") as mock_create:
+        resp = client.post("/posts", json={"content": "Hello World!"}, headers=auth_header)
     assert resp.status_code == 200
     assert resp.json()["message"] == "Post created"
+    mock_create.assert_called_once()
 
-def test_read_posts(client, fake_user_token, new_post):
-    client.post("/posts", json=new_post, headers={"authorization": fake_user_token})
-    resp = client.get("/posts")
+
+def test_read_posts(client):
+    with patch.object(database, "get_posts", return_value=[FAKE_POST]):
+        resp = client.get("/posts")
     assert resp.status_code == 200
-    data = resp.json()
-    assert isinstance(data, list)
-    assert len(data) >= 1
-    assert data[0]["content"] == new_post["content"]
+    assert isinstance(resp.json(), list)
+    assert len(resp.json()) >= 1
+    assert resp.json()[0]["content"] == "Hello World!"
 
-def test_read_single_post(client, fake_user_token, new_post):
-    client.post("/posts", json=new_post, headers={"authorization": fake_user_token})
-    posts = client.get("/posts").json()
-    post_id = posts[0]["id"]
-    resp = client.get(f"/posts/{post_id}")
+
+def test_read_single_post(client):
+    with patch.object(database, "get_post", return_value=FAKE_POST):
+        resp = client.get("/posts/1")
     assert resp.status_code == 200
-    assert resp.json()["content"] == new_post["content"]
+    assert resp.json()["content"] == "Hello World!"
 
-def test_update_post(client, fake_user_token, new_post):
-    client.post("/posts", json=new_post, headers={"authorization": fake_user_token})
-    posts = client.get("/posts").json()
-    post_id = posts[0]["id"]
-    updated_content = {"content": "Updated Content"}
-    resp = client.put(f"/posts/{post_id}", json=updated_content, headers={"authorization": fake_user_token})
+
+def test_update_post(client, auth_header):
+    with patch.object(database, "get_post", return_value=FAKE_POST), \
+         patch.object(database, "update_post") as mock_update:
+        resp = client.put("/posts/1", json={"content": "Updated Content"}, headers=auth_header)
     assert resp.status_code == 200
     assert resp.json()["message"] == "Post updated"
-    resp2 = client.get(f"/posts/{post_id}")
-    assert resp2.json()["content"] == "Updated Content"
+    mock_update.assert_called_once()
 
-def test_delete_post(client, fake_user_token, new_post):
-    client.post("/posts", json=new_post, headers={"authorization": fake_user_token})
-    posts = client.get("/posts").json()
-    post_id = posts[0]["id"]
-    resp = client.delete(f"/posts/{post_id}", headers={"authorization": fake_user_token})
+
+def test_delete_post(client, auth_header):
+    with patch.object(database, "get_post", return_value=FAKE_POST), \
+         patch.object(database, "delete_post") as mock_delete:
+        resp = client.delete("/posts/1", headers=auth_header)
     assert resp.status_code == 200
     assert resp.json()["message"] == "Post deleted"
-    resp2 = client.get(f"/posts/{post_id}")
-    assert resp2.status_code == 404
+    mock_delete.assert_called_once()
+
+    with patch.object(database, "get_post", return_value=None):
+        resp = client.get("/posts/1")
+    assert resp.status_code == 404
