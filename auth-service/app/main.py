@@ -1,5 +1,6 @@
 # app/main.py
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from app import database, auth
 
@@ -7,6 +8,13 @@ from app import database, auth
 database.create_tables()
 
 app = FastAPI(title="Auth Service")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Request schemas
 class UserRegister(BaseModel):
