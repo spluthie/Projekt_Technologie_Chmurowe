@@ -47,26 +47,6 @@ Użytkownik może zarejestrować się, zalogować, a następnie publikować, edy
 - Sesje oparte na tokenach **JWT** podpisanych algorytmem HS256, ważnych przez 1 godzinę
 - Cała komunikacja przez **HTTPS** (certyfikat TLS zapewniany automatycznie przez Google Cloud Run)
 
-## Operacje CRUD
-
-| Operacja | Endpoint | Metoda |
-|---|---|---|
-| Utwórz post | `/posts` | POST |
-| Pobierz posty | `/posts` | GET |
-| Pobierz post | `/posts/{id}` | GET |
-| Edytuj post | `/posts/{id}` | PUT |
-| Usuń post | `/posts/{id}` | DELETE |
-
-## Uruchomienie lokalne
-
-```bash
-docker compose up --build
-```
-
-Aplikacja dostępna pod adresem `http://localhost:8501`.
-
-Wymagana zmienna środowiskowa `DATABASE_URL` z connection stringiem do PostgreSQL.
-
 ## CI/CD
 
 Każdy push na gałąź `main` uruchamia automatyczny pipeline GitHub Actions:
@@ -90,23 +70,13 @@ pytest post-service/tests/
 pytest tests_e2e/
 ```
 
-## Wdrożenie (Google Cloud Run)
+## Operacje CRUD
 
-```bash
-gcloud run deploy auth-service \
-  --image docker.io/spluthietaco/auth-service:latest \
-  --platform managed --region europe-west1 \
-  --allow-unauthenticated --port 8000 \
-  --set-env-vars "SECRET_KEY=...,DATABASE_URL=..."
+| Operacja | Endpoint | Metoda |
+|---|---|---|
+| Utwórz post | `/posts` | POST |
+| Pobierz posty | `/posts` | GET |
+| Pobierz post | `/posts/{id}` | GET |
+| Edytuj post | `/posts/{id}` | PUT |
+| Usuń post | `/posts/{id}` | DELETE |
 
-gcloud run deploy post-service \
-  --image docker.io/spluthietaco/post-service:latest \
-  --platform managed --region europe-west1 \
-  --allow-unauthenticated --port 8001 \
-  --set-env-vars "SECRET_KEY=...,DATABASE_URL=..."
-
-gcloud run deploy frontend \
-  --image docker.io/spluthietaco/frontend:latest \
-  --platform managed --region europe-west1 \
-  --allow-unauthenticated --port 80
-```
