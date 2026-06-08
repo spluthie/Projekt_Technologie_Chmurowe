@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import './App.css';
 
-const AUTH_URL = process.env.REACT_APP_AUTH_URL;
-const POST_URL = process.env.REACT_APP_POST_URL;
+const AUTH_URL = "https://auth-service-1044319150113.europe-west1.run.app";
+const POST_URL = "https://post-service-1044319150113.europe-west1.run.app";
 
 function decodeJwt(token) {
   try {
