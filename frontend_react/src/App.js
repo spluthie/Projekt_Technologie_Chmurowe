@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import './App.css';
 
-const AUTH_URL = "https://auth-service.gentlewave-5817ead5.spaincentral.azurecontainerapps.io";
-const POST_URL = "https://post-service.gentlewave-5817ead5.spaincentral.azurecontainerapps.io";
+const AUTH_URL = "/auth";
+const POST_URL = "";
 
 function decodeJwt(token) {
   try {
