@@ -190,7 +190,7 @@ function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1 className="app-title">test</h1>
+        <h1 className="app-title">test2</h1>
         {currentUser && (
           <div className="user-bar">
             <span className="user-greeting">Zalogowany jako <strong>{currentUser}</strong></span>
